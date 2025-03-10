@@ -1,0 +1,323 @@
+---
+title: "Quoll Foraging"
+author: "Riley M. Anderson"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+graphics: yes
+output:
+  github_document:
+    toc: yes
+    toc_depth: 5
+    pandoc_args: --webtex
+  html_document:
+    keep_md: yes
+    theme: readable
+    mathjax: default
+  html_notebook:
+    code_folding: hide
+    theme: readable
+    mathjax: default
+  pdf_document:
+    toc: yes
+header-includes:
+  \usepackage{float}
+  \floatplacement{figure}{H}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include = F}
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@ Knitr Options
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+# Set root directory to the project directory
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+# Set default knitr options: 
+# Suppress warnings and messages, cache chunks, 
+#  set default figure size to 6x8 at 300 dpi, and save a png and pdf
+knitr::opts_chunk$set(warning = F, message = F, collapse = T, cache = T,
+    fig.height = 6, fig.width = 8, dpi = 300, # 6x8" @ 300dpi:1800x2400=4.3MP
+    dev = 'png', dev.args = list(pdf = list(onefile = F)))
+
+```
+
+
+
+## Overview
+
+What is this analysis about?
+
+### Summary of Results
+* 
+
+```{r Main_Code, include = F, cache = F}
+
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@ Setup - This code is run, but output is hidden
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+# Load Packages
+library(tidyverse) # Needed for data wrangling: dplyr, tidyr, ggplot2
+library(cowplot) # Needed for publication-quality ggplots
+library(ggridges)
+library(glmmTMB)
+library(emmeans)
+library(sjPlot)
+library(knitr)
+
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# @@@@@ Data Preparation
+# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+# Import datasets
+detections <- read.csv("data/VertsBehaviorDataAll.csv")
+
+species <-  read.csv("data/VertsBehaviorDataDiscoveryInitiateForaging.csv")
+
+# Functions
+
+# Function to check for overdispersion in poisson and binomial models:
+
+overdispersion_test <- function(model, type = "pearson"){
+    # Get the pearson residuals
+    residuals <- resid(model, type = type)
+    # Get the residual degrees of freedom of the model
+    df <- df.residual(model)
+    # Sum of residual deviance
+    dev <- sum(residuals ^ 2)
+    # Overdispersion = sum of squared residuals / residual degrees of freedom
+    ratio <- round(dev / df, 3)
+    # P-value 
+    pvalue <- round(pchisq(dev, df, lower.tail = FALSE), 3)
+    # Get the formula
+    f = paste(as.character(formula(model))[2:3], collapse = " ~ ")
+    # Get the model name
+    name <- deparse(substitute(model))
+    cat("Overdispersion ratio for model:", name, "\nformula:", f, 
+        "\n\nAcceptable range: 1 - 1.4\nOverdispersion ratio:",
+        ratio, " df:", df, " p =", pvalue, "\n", 
+        ifelse(pvalue < 0.05, "Data are overdispersed\n", 
+        "Data are not overdispersed\n"))
+    # Return all the parameters
+    return(c(ratio = ratio, deviance = dev, df = df, pvalue = pvalue))
+}
+
+
+```
+
+
+```{r Data_Wrangling, echo = F, comment = ""}
+
+
+detections <- detections %>% 
+  mutate(start = parse_date_time(start, "%m/%d/%Y %H:%M"),
+         end = parse_date_time(end, "%m/%d/%Y %H:%M"),
+         established = parse_date_time(established, "%m/%d/%Y %H:%M"),
+         first_consumption = parse_date_time(first_consumption,
+                                             "%m/%d/%Y %H:%M"),
+         discover = parse_date_time(discover, "%m/%d/%Y %H:%M"),
+         across(c(species, site, replicate, treatment, devil_poa,
+                  season, carcass_present, first_species), factor))
+
+```
+
+## Scavenger abundance
+```{r scav_abund, echo = F}
+
+detections %>% 
+  group_by(species, season) %>% 
+  tally() %>% kable(format = "markdown")
+
+```
+
+
+## Vigilance
+
+### Vigilance by devil presence or absence, site, and season
+```{r vigilance_devil_pres_abs_site_season, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll" &
+           devil_poa != "NA") %>% 
+  ggplot(aes(x = total, y = vigilant,
+             color = devil_poa)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  facet_wrap(vars(season, site), scales = "free") +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Vigilant photos",
+       color = "Devils")
+
+
+vig_mod1 <- glm(cbind(vigilant, total) ~ season * devil_poa +
+                  carcass_present,
+                family = quasibinomial(),
+                data = filter(detections,
+                              species == "Spotted-tailed quoll" &
+                                devil_poa != "NA"))
+overdispersion_test(vig_mod1)
+summary(vig_mod1)
+plot_model(vig_mod1, type = "pred",,
+           terms = c("season", "devil_poa"))
+plot_model(vig_mod1, type = "est") +
+  geom_hline(yintercept = 1, linetype = 2)
+
+
+```
+
+
+
+### Vigilance by devil presence or absence.
+```{r vigilance_devil_pres_abs, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll" &
+           devil_poa != "NA") %>% 
+  ggplot(aes(x = total, y = vigilant,
+             color = devil_poa)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Vigilant photos",
+       color = "Devils")
+
+vig_mod3 <- glm(cbind(vigilant, total) ~ devil_poa,
+                family = quasibinomial(),
+                data = filter(detections,
+                              species == "Spotted-tailed quoll" &
+                                devil_poa != "NA"))
+summary(vig_mod3)
+plot_model(vig_mod3, type = "pred")
+```
+
+### Vigilance by carcass treatment, site, and season (E = excluded, S = access).
+```{r vigilance_devil_treatment_site_season, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll") %>% 
+  ggplot(aes(x = total, y = vigilant,
+             color = treatment)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  facet_wrap(vars(season, site), scales = "free") +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Vigilant photos",
+       color = "Carcass\ntreatment")
+
+```
+
+
+### Vigilance by carcass treatment (E = excluded, S = access).
+```{r vigilance_devil_treatment, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll") %>% 
+  ggplot(aes(x = total, y = vigilant,
+             color = treatment)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Vigilant photos",
+       color = "Carcass\ntreatment")
+
+```
+
+## Foraging
+
+### Foraging by devil presence or absence, site, and season
+```{r foraging_devil_pres_abs_site_season, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll" &
+           devil_poa != "NA") %>% 
+  ggplot(aes(x = total, y = foraging_carc,
+             color = devil_poa)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  facet_wrap(vars(season, site), scales = "free") +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Foraging photos",
+       color = "Devils")
+
+```
+
+
+
+### Foraging by devil presence or absence.
+```{r foraging_devil_pres_abs, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll" &
+           devil_poa != "NA") %>% 
+  ggplot(aes(x = total, y = foraging_carc,
+             color = devil_poa)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Foraging photos",
+       color = "Devils")
+
+```
+
+### Foraging by carcass treatment, site, and season (E = excluded, S = access).
+```{r foraging_devil_treatment_site_season, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll") %>% 
+  ggplot(aes(x = total, y = foraging_carc,
+             color = treatment)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  facet_wrap(vars(season, site), scales = "free") +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Foraging photos",
+       color = "Carcass\ntreatment")
+
+```
+
+
+### Foraging by carcass treatment (E = excluded, S = access).
+```{r foraging_devil_treatment, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll") %>% 
+  ggplot(aes(x = total, y = foraging_carc,
+             color = treatment)) +
+  geom_point() +
+  geom_smooth(method = 'lm', show.legend = F) +
+  theme(strip.background = element_blank()) +
+  theme_minimal() +
+  labs(x = "Total photos",
+       y = "Foraging photos",
+       color = "Carcass\ntreatment")
+
+```
+
+
+## Session Information
+
+```{r Session_Info, echo = F, comment = ""}
+
+# Add session information to help with reproduceability
+sessionInfo()
+
+
+```
+
+
