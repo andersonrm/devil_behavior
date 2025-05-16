@@ -1,7 +1,7 @@
 Quoll Foraging
 ================
 Riley M. Anderson
-March 10, 2025
+May 16, 2025
 
   
 
@@ -26,7 +26,10 @@ March 10, 2025
     access).](#foraging-by-carcass-treatment-site-and-season-e--excluded-s--access)
   - [Foraging by carcass treatment (E = excluded, S =
     access).](#foraging-by-carcass-treatment-e--excluded-s--access)
-- [Session Information](#session-information)
+- [Devil activity as a predictor](#devil-activity-as-a-predictor)
+  - [Foraging efficiency](#foraging-efficiency)
+  - [Vigilance](#vigilance-1)
+  - [Foraging initiation](#foraging-initiation)
 
 ## Overview
 
@@ -146,7 +149,113 @@ What is this analysis about?
 
 ![](quoll_foraging_files/figure-gfm/foraging_devil_treatment-1.png)<!-- -->
 
-## Session Information
+## Devil activity as a predictor
+
+### Foraging efficiency
+
+![](quoll_foraging_files/figure-gfm/devil_activity_foraging_efficiency-1.png)<!-- -->
+
+    ## [1] "high"   "low"    "medium"
+    ## 
+    ## Call:
+    ## glm(formula = cbind(foraging_carc, total) ~ devil_activity, family = binomial(), 
+    ##     data = filter(detections, species == "Spotted-tailed quoll", 
+    ##         !is.na(devil_activity)))
+    ## 
+    ## Deviance Residuals: 
+    ##      Min        1Q    Median        3Q       Max  
+    ## -15.5047   -3.0407   -1.8020    0.4485    5.2781  
+    ## 
+    ## Coefficients:
+    ##                      Estimate Std. Error z value Pr(>|z|)    
+    ## (Intercept)          -0.39838    0.01516 -26.281  < 2e-16 ***
+    ## devil_activitylow     0.11426    0.02013   5.676 1.38e-08 ***
+    ## devil_activitymedium  0.08106    0.02073   3.910 9.23e-05 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## (Dispersion parameter for binomial family taken to be 1)
+    ## 
+    ##     Null deviance: 3293.6  on 308  degrees of freedom
+    ## Residual deviance: 3260.4  on 306  degrees of freedom
+    ## AIC: 4214.2
+    ## 
+    ## Number of Fisher Scoring iterations: 4
+
+![](quoll_foraging_files/figure-gfm/devil_activity_foraging_efficiency-2.png)<!-- -->
+
+### Vigilance
+
+![](quoll_foraging_files/figure-gfm/vigilance_devil_activity-1.png)<!-- -->
+
+    ## 
+    ## Call:
+    ## glm(formula = cbind(vigilant, total) ~ devil_activity, family = quasibinomial(), 
+    ##     data = filter(detections, species == "Spotted-tailed quoll", 
+    ##         !is.na(devil_activity)))
+    ## 
+    ## Deviance Residuals: 
+    ##     Min       1Q   Median       3Q      Max  
+    ## -8.3849  -1.4210  -0.7326   0.8807  11.7851  
+    ## 
+    ## Coefficients:
+    ##                      Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)          -2.24206    0.07978 -28.101  < 2e-16 ***
+    ## devil_activitylow    -0.54160    0.12224  -4.431 1.31e-05 ***
+    ## devil_activitymedium -0.26328    0.11730  -2.245   0.0255 *  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## (Dispersion parameter for quasibinomial family taken to be 6.623148)
+    ## 
+    ##     Null deviance: 1984.6  on 308  degrees of freedom
+    ## Residual deviance: 1852.4  on 306  degrees of freedom
+    ## AIC: NA
+    ## 
+    ## Number of Fisher Scoring iterations: 5
+    ## Overdispersion ratio for model: vig_mod4 
+    ## formula: cbind(vigilant, total) ~ devil_activity 
+    ## 
+    ## Acceptable range: 1 - 1.4
+    ## Overdispersion ratio: 6.623  df: 306  p = 0 
+    ##  Data are overdispersed
+    ##    ratio deviance       df   pvalue 
+    ##    6.623 2026.683  306.000    0.000
+
+![](quoll_foraging_files/figure-gfm/vigilance_devil_activity-2.png)<!-- -->![](quoll_foraging_files/figure-gfm/vigilance_devil_activity-3.png)<!-- -->![](quoll_foraging_files/figure-gfm/vigilance_devil_activity-4.png)<!-- -->
+
+    ##  Family: poisson  ( log )
+    ## Formula:          vigilant ~ total * devil_activity + (1 | replicate)
+    ## Data: 
+    ## filter(detections, species == "Spotted-tailed quoll", !is.na(devil_activity))
+    ## 
+    ##      AIC      BIC   logLik deviance df.resid 
+    ##   3751.1   3777.2  -1868.5   3737.1      302 
+    ## 
+    ## Random effects:
+    ## 
+    ## Conditional model:
+    ##  Groups    Name        Variance Std.Dev.
+    ##  replicate (Intercept) 0.2895   0.5381  
+    ## Number of obs: 309, groups:  replicate, 6
+    ## 
+    ## Conditional model:
+    ##                              Estimate Std. Error z value Pr(>|z|)    
+    ## (Intercept)                 1.560e+00  2.266e-01   6.886 5.75e-12 ***
+    ## total                       2.638e-03  8.637e-05  30.539  < 2e-16 ***
+    ## devil_activitylow          -9.472e-02  7.221e-02  -1.312   0.1896    
+    ## devil_activitymedium       -1.677e-01  7.724e-02  -2.172   0.0299 *  
+    ## total:devil_activitylow    -7.011e-04  1.303e-04  -5.379 7.49e-08 ***
+    ## total:devil_activitymedium -2.196e-05  1.132e-04  -0.194   0.8462    
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+![](quoll_foraging_files/figure-gfm/vigilance_devil_activity_binomial-1.png)<!-- -->
+
+### Foraging initiation
+
+![](quoll_foraging_files/figure-gfm/forage_initiation-1.png)<!-- --> \##
+Session Information
 
     R version 4.2.3 (2023-03-15 ucrt)
     Platform: x86_64-w64-mingw32/x64 (64-bit)

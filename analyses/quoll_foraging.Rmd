@@ -66,6 +66,7 @@ library(glmmTMB)
 library(emmeans)
 library(sjPlot)
 library(knitr)
+library(lme4)
 
 # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # @@@@@ Data Preparation
@@ -309,7 +310,109 @@ detections %>%
 
 ```
 
+## Devil activity as a predictor
 
+### Foraging efficiency
+```{r devil_activity_foraging_efficiency, echo = F}
+
+detections <- detections %>% 
+  mutate(devil_activity = factor(case_when(
+    devil_detections == 0 ~ "low",
+    devil_detections < 11 ~ "medium",
+    devil_detections > 10 ~ "high",
+    TRUE ~ NA
+  ))) 
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll",
+         !is.na(devil_activity)) %>% 
+  droplevels() %>%
+  ggplot(aes(x = total, y = foraging_carc, color = devil_activity)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_wrap(~site)
+
+for_mod2 <- glm(cbind(foraging_carc, total) ~ devil_activity,
+                data = filter(detections,
+                              species == "Spotted-tailed quoll",
+                              !is.na(devil_activity)),
+                family = binomial())
+levels(detections$devil_activity)
+  
+summary(for_mod2)
+
+
+plot_model(for_mod2,
+           type = "pred")
+```
+
+
+### Vigilance
+```{r vigilance_devil_activity, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll",
+         !is.na(devil_activity)) %>% 
+  droplevels() %>% 
+  ggplot(aes(x = total, y = vigilant, color = devil_activity)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_wrap(~site) +
+  theme_minimal()
+
+vig_mod4 <- glm(cbind(vigilant, total) ~ devil_activity,
+                  data = filter(detections,
+                                species == "Spotted-tailed quoll",
+                                !is.na(devil_activity)),
+                  family = quasibinomial())
+summary(vig_mod4)
+
+overdispersion_test(vig_mod4)
+plot_model(vig_mod4,
+           type = "pred")
+
+vig_mod5 <- glmmTMB(vigilant ~ total * devil_activity +
+                      (1 | replicate),
+                    data = filter(detections,
+                                  species == "Spotted-tailed quoll",
+                                  !is.na(devil_activity)),
+                    family = poisson())
+plot_model(vig_mod5,
+           type = "pred",
+           terms = c("total", "devil_activity"))
+plot_model(vig_mod5,
+           type = "re")
+summary(vig_mod5)
+
+
+```
+
+```{r vigilance_devil_activity_binomial, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll",
+         !is.na(devil_activity)) %>% 
+  mutate(vigilance = vigilant/total) %>% 
+  ggplot(aes(x = devil_detections, y = vigilance)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  facet_wrap(~first_species)
+
+```
+
+
+### Foraging initiation
+```{r forage_initiation, echo = F}
+
+detections %>% 
+  filter(species == "Spotted-tailed quoll",
+         !is.na(devil_activity)) %>% 
+  ggplot(aes(x = devil_detections, y = sec_initiate)) +
+  geom_jitter() +
+  geom_smooth(method = 'lm') +
+  facet_wrap(~site)
+
+```
 ## Session Information
 
 ```{r Session_Info, echo = F, comment = ""}
